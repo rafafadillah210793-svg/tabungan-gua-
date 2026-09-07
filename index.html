@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tabung Harian — 30rb/hari</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0b12;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;color:#e8e8f0;padding:20px}
+.container{max-width:480px;width:100%;background:linear-gradient(145deg,#13131e,#1a1a2e);border-radius:28px;padding:28px 24px 32px;box-shadow:0 20px 40px rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.03)}
+.header{text-align:center;margin-bottom:24px}
+.header h1{font-size:26px;font-weight:700;background:linear-gradient(135deg,#34d399,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:#a0a0b8;font-size:14px;margin-top:4px}
+.stats{display:flex;justify-content:space-between;background:rgba(255,255,255,0.04);border-radius:16px;padding:16px 12px;margin-bottom:20px;border:1px solid rgba(255,255,255,0.05)}
+.stat-item{text-align:center;flex:1}
+.stat-item .label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#8888aa;margin-bottom:4px}
+.stat-item .value{font-size:18px;font-weight:700;color:#f0f0ff}
+.progress-section{margin-bottom:24px;position:relative}
+.progress-bar-bg{width:100%;height:10px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden}
+.progress-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#10b981,#34d399,#10b981);background-size:200% 100%;animation:shimmer 2s infinite linear;border-radius:99px;transition:width 0.6s ease}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.progress-text{position:absolute;right:0;top:-18px;font-size:13px;font-weight:600;color:#34d399}
+.card{background:rgba(255,255,255,0.03);border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.04)}
+.card h3{font-size:15px;font-weight:600;color:#c8c8e0;margin-bottom:12px}
+.history ul{list-style:none;max-height:200px;overflow-y:auto}
+.history ul li{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:14px;color:#d0d0e8;display:flex;justify-content:space-between}
+.history ul li:last-child{border-bottom:none}
+.empty-state{color:#666688;font-style:italic;text-align:center;padding:16px 0}
+.actions{display:flex;gap:12px;margin-bottom:16px}
+.btn{flex:1;padding:14px 12px;border:none;border-radius:14px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
+.btn.primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,0.3)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,0.4)}
+.btn.secondary{background:rgba(255,255,255,0.06);color:#b0b0c8}
+.btn.secondary:hover{background:rgba(255,255,255,0.1)}
+.schedule{text-align:center;font-size:14px;color:#9999b8;padding:8px 0}
+.schedule span{color:#34d399;font-weight:600}
+.hint{font-size:12px;color:#666688;margin-top:4px}
+.footer{text-align:center;margin-top:20px;font-size:11px;color:#444466;border-top:1px solid rgba(255,255,255,0.03);padding-top:16px}
+.target-highlight{color:#34d399;font-weight:700;font-size:20px}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>🌱 Tabung Harian</h1>
+<p class="subtitle">30.000 setiap hari — menuju <span class="target-highlight">Rp 1.000.000</span></p>
+</div>
+
+<div class="card stats">
+<div class="stat-item"><span class="label">Total Tabungan</span><span class="value" id="totalSaved">Rp 0</span></div>
+<div class="stat-item"><span class="label">Target</span><span class="value" id="targetDisplay">Rp 1.000.000</span></div>
+<div class="stat-item"><span class="label">Hari Menabung</span><span class="value" id="daysCount">0 hari</span></div>
+</div>
+
+<div class="progress-section">
+<div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+<span class="progress-text" id="progressText">0%</span>
+</div>
+
+<div class="card history">
+<h3>📋 Riwayat Setoran Harian</h3>
+<ul id="historyList"><li class="empty-state">Belum ada setoran. Mulai sekarang!</li></ul>
+</div>
+
+<div class="actions">
+<button class="btn primary" id="depositBtn">💰 Setor 30.000 Hari Ini</button>
+<button class="btn secondary" id="resetBtn">↺ Reset</button>
+</div>
+
+<div class="schedule">
+<p>📅 Setoran hari ini: <span id="todayStatus">Belum setor</span></p>
+<p class="hint">Setiap hari. Konsisten adalah kuncinya.</p>
+</div>
+
+<div class="footer">
+<p>✨ Data disimpan di browser mu. Tidak ada yang melihat.</p>
+</div>
+</div>
+
+<script>
+const CONFIG = {
+    depositAmount: 30000,
+    target: 1000000
+};
+
+let state = { history: [], lastDeposit: null };
+
+document.addEventListener('DOMContentLoaded', function() {
+    const totalSavedEl = document.getElementById('totalSaved');
+    const targetDisplayEl = document.getElementById('targetDisplay');
+    const daysCountEl = document.getElementById('daysCount');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const historyList = document.getElementById('historyList');
+    const depositBtn = document.getElementById('depositBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const todayStatusEl = document.getElementById('todayStatus');
+
+    function loadState() {
+        const saved = localStorage.getItem('tabungHarian');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                state.history = parsed.history || [];
+                state.lastDeposit = parsed.lastDeposit || null;
+            } catch(e) {}
+        }
+    }
+
+    function saveState() {
+        localStorage.setItem('tabungHarian', JSON.stringify({
+            history: state.history,
+            lastDeposit: state.lastDeposit
+        }));
+    }
+
+    function getTotalSaved() {
+        return state.history.length * CONFIG.depositAmount;
+    }
+
+    function getProgress() {
+        const total = getTotalSaved();
+        return Math.min((total / CONFIG.target) * 100, 100);
+    }
+
+    function getDaysCount() {
+        return state.history.length;
+    }
+
+    function isTodayAlreadyDeposited() {
+        if (!state.lastDeposit) return false;
+        const last = new Date(state.lastDeposit);
+        const today = new Date();
+        return last.getDate() === today.getDate() &&
+               last.getMonth() === today.getMonth() &&
+               last.getFullYear() === today.getFullYear();
+    }
+
+    function formatRupiah(amount) {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0
+        }).format(amount);
+    }
+
+    function formatDate(ts) {
+        return new Date(ts).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function render() {
+        const total = getTotalSaved();
+        const progress = getProgress();
+        const daysCount = getDaysCount();
+        const alreadyDeposited = isTodayAlreadyDeposited();
+
+        if (totalSavedEl) totalSavedEl.textContent = formatRupiah(total);
+        if (targetDisplayEl) targetDisplayEl.textContent = formatRupiah(CONFIG.target);
+        if (daysCountEl) daysCountEl.textContent = daysCount + ' hari';
+
+        if (progressFill) progressFill.style.width = progress + '%';
+        if (progressText) progressText.textContent = Math.round(progress) + '%';
+
+        if (historyList) {
+            if (state.history.length === 0) {
+                historyList.innerHTML = '<li class="empty-state">Belum ada setoran. Mulai sekarang!</li>';
+            } else {
+                historyList.innerHTML = state.history.map((ts, i) => {
+                    return '<li><span>#' + (i+1) + ' · ' + formatDate(ts) + '</span><span>' + formatRupiah(CONFIG.depositAmount) + '</span></li>';
+                }).join('');
+                historyList.scrollTop = historyList.scrollHeight;
+            }
+        }
+
+        if (todayStatusEl) {
+            if (alreadyDeposited) {
+                todayStatusEl.textContent = '✅ Sudah setor hari ini!';
+                todayStatusEl.style.color = '#34d399';
+            } else {
+                todayStatusEl.textContent = '⏳ Belum setor hari ini';
+                todayStatusEl.style.color = '#fbbf24';
+            }
+        }
+
+        saveState();
+    }
+
+    function deposit() {
+        // Cek apakah hari ini sudah setor
+        if (isTodayAlreadyDeposited()) {
+            alert('⏳ Kau sudah setor hari ini!\nKembali lagi besok, tuan Rapa.');
+            return;
+        }
+
+        state.history.push(Date.now());
+        state.lastDeposit = Date.now();
+        render();
+
+        if (depositBtn) {
+            depositBtn.textContent = '✅ Tersimpan!';
+            setTimeout(() => {
+                depositBtn.textContent = '💰 Setor 30.000 Hari Ini';
+            }, 1500);
+        }
+    }
+
+    function resetState() {
+        if (confirm('⚠️ Reset semua data tabungan? Ini tidak bisa dibatalkan.')) {
+            state.history = [];
+            state.lastDeposit = null;
+            render();
+        }
+    }
+
+    loadState();
+    render();
+
+    if (depositBtn) depositBtn.addEventListener('click', deposit);
+    if (resetBtn) resetBtn.addEventListener('click', resetState);
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.target === document.body) {
+            deposit();
+        }
+    });
+
+    console.log('🚀 Tabung Harian siap digunakan!');
+});
+</script>
+</body>
+</html>
